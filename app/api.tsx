@@ -7,5 +7,9 @@ export default class Api {
 
   get turma() {
     return `${this.uri}/turma`;
+
+  }
+  get atividade() {
+    return `${this.uri}/atividade`;
   }
 }
