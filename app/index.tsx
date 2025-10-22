@@ -84,4 +84,4 @@ const styles = StyleSheet.create({
   button: { backgroundColor: "#003366", paddingVertical: 14, borderRadius: 10 },
   buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16, textAlign: "center" },
 });
-//vamos ver se vai dar certo
+//vamos ver se vai dar certo \\\\\aaaaa
