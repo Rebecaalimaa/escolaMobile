@@ -1,5 +1,5 @@
 export default class Api {
-  uri: string = "http://10.87.202.159:3000";
+  uri: string = "http://192.168.1.170:3000";
 
   get login() {
     return `${this.uri}/login`;

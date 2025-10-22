@@ -1,133 +1,85 @@
-// app/home.tsx  (ou o seu Home.tsx)
-import { Stack, router } from "expo-router";
-import React, { useCallback, useState } from "react";
-import Api from "./api";
-import { Text, View, TouchableOpacity, StyleSheet, FlatList, Alert } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import React, { useEffect, useState } from "react";
+import { View, Text, Button, FlatList, Alert, StyleSheet } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
-interface Turma {
-  id: string;
+type Turma = {
+  id: number;
   nome: string;
-}
+};
 
 export default function Home() {
-  const [professorName] = useState("Professor Exemplo");
+  const { professorId, professorNome } = useLocalSearchParams<{ professorId: string; professorNome: string }>();
+  const router = useRouter();
   const [turmas, setTurmas] = useState<Turma[]>([]);
 
-  // Carrega turmas sempre que a tela ganha foco (inclui quando volta de cadastro)
-  useFocusEffect(
-    useCallback(() => {
-      carregarTurmas();
-    }, [])
-  );
+  useEffect(() => {
+    fetchTurmas();
+  }, []);
 
-  async function carregarTurmas() {
-    const api = new Api();
-    const uri = api.turma;
-
+  const fetchTurmas = async () => {
     try {
-      const res = await fetch(uri, { method: "GET", headers: { "Content-Type": "application/json" }});
-      if (!res.ok) {
-        console.error("GET turmas erro:", res.status);
-        Alert.alert("Erro", "Falha ao carregar turmas do servidor.");
-        return;
-      }
+      const res = await fetch(`http://localhost:3000/turma?professorId=${professorId}`);
       const data = await res.json();
       setTurmas(data);
     } catch (error) {
-      console.error("Erro ao carregar turmas:", error);
-      Alert.alert("Erro", "Não foi possível conectar ao servidor.");
+      console.log(error);
     }
-  }
+  };
 
-  function handleCadastroTurma() {
-    router.push("/cadastroTurma");
-  }
+  const handleLogout = () => router.replace("/");
 
-  function handleVisualizarTurma(turmaId: string, turmaNome: string) {
-    router.push({ pathname: "/atividadeTurma", params: { turmaId, turmaNome } });
-  }
-
-  async function handleExcluirTurma(turmaId: string, turmaNome: string) {
+  const handleExcluirTurma = (id: number) => {
     Alert.alert(
-      "Confirmar Exclusão",
-      `Excluir a turma '${turmaNome}'?`,
+      "Confirmação",
+      "Deseja realmente excluir essa turma?",
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: "Cancelar" },
         {
           text: "Excluir",
           onPress: async () => {
             try {
-              const api = new Api();
-              const uri = `${api.turma}/${turmaId}`;
-              const res = await fetch(uri, { method: "DELETE" });
-              if (res.ok) {
-                setTurmas((prev) => prev.filter((t) => t.id !== turmaId));
-                Alert.alert("Sucesso", "Turma excluída.");
-              } else {
-                Alert.alert("Erro", "Não foi possível excluir a turma.");
+              const res = await fetch(`http://localhost:3000/turma/${id}`, { method: "DELETE" });
+              if (res.status === 400) {
+                Alert.alert("Erro", "Você não pode excluir uma turma com atividades cadastradas.");
+                return;
               }
-            } catch (err) {
-              console.error("Erro excluir:", err);
-              Alert.alert("Erro", "Falha ao excluir turma.");
+              fetchTurmas();
+            } catch (error) {
+              console.log(error);
             }
           },
+          style: "destructive",
         },
-      ]
+      ],
+      { cancelable: true }
     );
-  }
+  };
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: "Tela Principal do Professor" }} />
-      <Text style={styles.welcomeText}>Olá, {professorName}!</Text>
-
-      <TouchableOpacity style={styles.button} onPress={handleCadastroTurma}>
-        <Text style={styles.buttonText}>Cadastrar Turma</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.subtitle}>Suas turmas:</Text>
-
-      {turmas.length > 0 ? (
-        <FlatList
-          data={turmas}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Text style={styles.turmaNome}>📘 {item.nome}</Text>
-              <View style={styles.actionsContainer}>
-                <TouchableOpacity style={[styles.actionButton, styles.viewButton]} onPress={() => handleVisualizarTurma(item.id, item.nome)}>
-                  <Text style={styles.actionButtonText}>Visualizar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => handleExcluirTurma(item.id, item.nome)}>
-                  <Text style={styles.actionButtonText}>Excluir</Text>
-                </TouchableOpacity>
-              </View>
+      <Text style={styles.title}>Bem-vindo, {professorNome}</Text>
+      <Button title="Cadastrar Turma" onPress={() => router.push({ pathname: "/cadastroTurma", params: { professorId } })} />
+      <FlatList
+        data={turmas}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.turma}>
+            <Text>{item.id} - {item.nome}</Text>
+            <View style={styles.botoes}>
+              <Button title="Visualizar" onPress={() => router.push({ pathname: "/atividadeTurma", params: { turmaId: item.id, turmaNome: item.nome, professorNome } })} />
+              <Button title="Excluir" color="red" onPress={() => handleExcluirTurma(item.id)} />
             </View>
-          )}
-          keyExtractor={(item) => item.id}
-          style={styles.flatList}
-        />
-      ) : (
-        <Text style={styles.loading}>Nenhuma turma cadastrada.</Text>
-      )}
+          </View>
+        )}
+      />
+      <Button title="Sair" onPress={handleLogout} color="gray" />
     </View>
   );
 }
 
-// (estilos omitidos para brevidade — reutilize os seus)
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5", alignItems: "center", padding: 20 },
-  welcomeText: { fontSize: 24, fontWeight: "bold", color: "#333", marginBottom: 20 },
-  button: { backgroundColor: "#007bff", paddingVertical: 12, paddingHorizontal: 30, borderRadius: 8, marginBottom: 20 },
-  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  subtitle: { fontSize: 18, fontWeight: "600", color: "#555", marginBottom: 15 },
-  flatList: { width: "100%" },
-  card: { backgroundColor: "#fff", borderRadius: 10, padding: 15, marginVertical: 8, width: "100%", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  turmaNome: { color: "#333", fontSize: 16, fontWeight: "500", flex: 1 },
-  actionsContainer: { flexDirection: "row" },
-  actionButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 5, marginLeft: 10 },
-  viewButton: { backgroundColor: "#28a745" },
-  deleteButton: { backgroundColor: "#dc3545" },
-  actionButtonText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
-  loading: { color: "#888", fontStyle: "italic", marginTop: 20 },
+  container: { flex: 1, padding: 20 },
+  title: { fontSize: 20, fontWeight: "bold", marginBottom: 20 },
+  turma: { padding: 10, borderWidth: 1, marginBottom: 10, borderRadius: 5 },
+  botoes: { flexDirection: "row", justifyContent: "space-between", marginTop: 5 },
 });
